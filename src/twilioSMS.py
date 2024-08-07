@@ -15,6 +15,7 @@ from viam.logging import getLogger
 
 import time
 import asyncio
+from datetime import datetime
 from twilio.rest import Client
 
 LOGGER = getLogger(__name__)
@@ -88,11 +89,14 @@ class twilioSMS(Generic, Reconfigurable):
                     message_params['from_'] = command['from']
                 if 'to' in command:
                     message_params['to'] = command['to']
-
+                if 'date_start' in command:
+                    message_params['date_sent_after'] = datetime.strptime(command['date_start'], '%d/%m/%Y %H:%M:%S')
+                if 'date_end' in command:
+                    message_params['date_sent_before'] = datetime.strptime(command['date_end'], '%d/%m/%Y %H:%M:%S')
                 messages = self.twilio_client.messages.list(**message_params)
                 result['messages'] = []
                 for record in messages:
-                    result['messages'].append({'body': record.body, 'to': record.to, 'from': record.from_, 'sent': record.date_sent.strftime("%d/%m/%Y, %H:%M:%S") })
+                    result['messages'].append({'body': record.body, 'to': record.to, 'from': record.from_, 'sent': record.date_sent.strftime("%d/%m/%Y %H:%M:%S") })
                 result['status'] = 'retrieved'
         else:
             result['status'] = 'error'
