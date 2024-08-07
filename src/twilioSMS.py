@@ -13,8 +13,11 @@ from viam.utils import ValueTypes, struct_to_dict
 from viam.services.generic import Generic
 from viam.logging import getLogger
 
-import time
-import asyncio
+import uuid
+import json
+import requests
+import mimetypes
+from pathlib import Path
 from datetime import datetime
 from twilio.rest import Client
 
@@ -24,6 +27,9 @@ class twilioSMS(Generic, Reconfigurable):
 
     MODEL: ClassVar[Model] = Model(ModelFamily("mcvella", "messaging"), "twilio-sms")
     twilio_client: Client
+    twilio_account_sid: str
+    twilio_auth_token: str
+    twilio_media_sid: str
     default_from: str
 
     # Constructor
@@ -46,9 +52,10 @@ class twilioSMS(Generic, Reconfigurable):
 
     # Handles attribute reconfiguration
     def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]):
-        account_sid = config.attributes.fields["account_sid"].string_value
-        auth_token = config.attributes.fields["auth_token"].string_value
-        self.twilio_client = Client(account_sid, auth_token)
+        self.twilio_account_sid = config.attributes.fields["account_sid"].string_value
+        self.twilio_auth_token = config.attributes.fields["auth_token"].string_value
+        self.twilio_client = Client(self.twilio_account_sid, self.twilio_auth_token)
+        self.twilio_media_sid = config.attributes.fields["media_sid"].string_value or ""
         self.default_from = config.attributes.fields["default_from"].string_value or ""
         return
     
@@ -63,17 +70,45 @@ class twilioSMS(Generic, Reconfigurable):
 
         if 'command' in command:
             if command['command'] == 'send':
+                message_args = {}
+                # if media, create as a twilio asset first
+                if 'media_path' in command and (self.twilio_media_sid != ""):
+                    LOGGER.error("will send media")
+                    asset = self.twilio_client.serverless.v1.services(self.twilio_media_sid).assets.create(friendly_name=uuid.uuid4())
+
+                    # the twilio SDK does not have a method for actually uploading the media content so need to use the API directly
+                    service_url = f'https://serverless-upload.twilio.com/v1/Services/{self.twilio_media_sid}'
+                    upload_url = f'{service_url}/Assets/{asset.sid}/Versions'
+
+                    file_contents = open(command['media_path'], 'rb')
+                    # Create a new Asset Version
+                    version_args = { "url": upload_url,
+                                     "auth": (self.twilio_account_sid, self.twilio_auth_token),
+                                     "files": {
+                                        'Content': (Path(command['media_path']).name, file_contents, mimetypes.guess_type(command['media_path'])[0])
+                                    },
+                                    "data": {
+                                        'Path': Path(command['media_path']).name,
+                                    'Visibility': 'protected',
+                                    }
+                    }
+                    LOGGER.error(version_args)
+                    response = requests.post(**version_args)
+
+                    LOGGER.error(response.text)
+                    new_version_sid = json.loads(response.text).get("sid")
+                    message_args['media_url'] = [f'https://serverless.twilio.com/v1/Services/{self.twilio_media_sid}/Functions/{asset.sid}/Versions/{new_version_sid}']
+                
                 if 'from' in command:
-                    message_from = command['from']
+                    message_args['from_'] = command['from']
                 else:
-                    message_from = self.default_from
-                message_to = command['to']
-                message_body = command['body']
-                message = self.twilio_client.messages.create(
-                    from_=message_from,
-                    to=message_to,
-                    body=message_body
-                )
+                    message_args['from_'] = self.default_from
+                message_args['to'] = command['to']
+                message_args['body'] = command['body']
+
+                LOGGER.error(message_args)
+                message = self.twilio_client.messages.create(**message_args)
+
                 if message.error_message != "":
                     result['status'] = 'error'
                     result['error'] = message.error_message
