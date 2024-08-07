@@ -89,10 +89,10 @@ class twilioSMS(Generic, Reconfigurable):
                     message_params['from_'] = command['from']
                 if 'to' in command:
                     message_params['to'] = command['to']
-                if 'date_start' in command:
-                    message_params['date_sent_after'] = datetime.strptime(command['date_start'], '%d/%m/%Y %H:%M:%S')
-                if 'date_end' in command:
-                    message_params['date_sent_before'] = datetime.strptime(command['date_end'], '%d/%m/%Y %H:%M:%S')
+                if 'time_start' in command:
+                    message_params['date_sent_after'] = datetime.strptime(command['time_start'], '%d/%m/%Y %H:%M:%S')
+                if 'time_end' in command:
+                    message_params['date_sent_before'] = datetime.strptime(command['time_end'], '%d/%m/%Y %H:%M:%S')
                 messages = self.twilio_client.messages.list(**message_params)
                 result['messages'] = []
                 for record in messages:
