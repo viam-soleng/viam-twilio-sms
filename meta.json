@@ -1,0 +1,13 @@
+{
+  "module_id": "mcvella:twilio-sms",
+  "visibility": "public",
+  "url": "https://github.com/mcvella/viam-twilio-sms",
+  "description": "Viam modular service to allow you to integrate your machines with SMS/MMS functionality via Twilio",
+  "models": [
+    {
+      "api": "rdk:service:generic",
+      "model": "mcvella:messaging:twilio-sms"
+    }
+  ],
+  "entrypoint": "run.sh"
+}
