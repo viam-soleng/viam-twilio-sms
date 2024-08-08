@@ -73,7 +73,6 @@ class twilioSMS(Generic, Reconfigurable):
                 message_args = {}
                 # if media, create as a twilio asset first
                 if 'media_path' in command and (self.twilio_media_sid != ""):
-                    LOGGER.error("will send media")
                     asset = self.twilio_client.serverless.v1.services(self.twilio_media_sid).assets.create(friendly_name=uuid.uuid4())
 
                     # the twilio SDK does not have a method for actually uploading the media content so need to use the API directly
@@ -92,10 +91,7 @@ class twilioSMS(Generic, Reconfigurable):
                                     'Visibility': 'protected',
                                     }
                     }
-                    LOGGER.error(version_args)
                     response = requests.post(**version_args)
-
-                    LOGGER.error(response.text)
                     new_version_sid = json.loads(response.text).get("sid")
                     message_args['media_url'] = [f'https://serverless.twilio.com/v1/Services/{self.twilio_media_sid}/Functions/{asset.sid}/Versions/{new_version_sid}']
                 
@@ -104,12 +100,11 @@ class twilioSMS(Generic, Reconfigurable):
                 else:
                     message_args['from_'] = self.default_from
                 message_args['to'] = command['to']
-                message_args['body'] = command['body']
+                message_args['body'] = command['body'] or ""
 
-                LOGGER.error(message_args)
                 message = self.twilio_client.messages.create(**message_args)
 
-                if message.error_message != "":
+                if message.error_message != 0:
                     result['status'] = 'error'
                     result['error'] = message.error_message
                 else:

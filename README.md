@@ -1,14 +1,15 @@
-# twilio-sms modular resource
+# twilio-sms Viam modular resource
 
-This module implements the [rdk generic API](https://github.com/rdk/generic-api) in a mcvella:messaging:twilio-sms model.
-With this model, you can...
+This module implements the [RDK generic API](https://github.com/rdk/generic-api) in a mcvella:messaging:twilio-sms service model.
+With this model, you can:
+
+- Send SMS and MMS (media) text messages via a [Twilio](https://www.twilio.com/) phone number.
+- Retrieve received messages from a Twilio phone number, optionally filtered by date range and sender.
 
 ## Requirements
 
-_Add instructions here for any requirements._
-
-``` bash
-```
+You must have a registered Twilio account with an account SID and auth token.
+In order to send media (MMS), you must also set up a [Twilio service](https://console.twilio.com/us1/develop/functions/services) and provide the service SID.
 
 ## Build and run
 
@@ -20,15 +21,18 @@ To use this module, follow the instructions to [add a module from the Viam Regis
 > Before configuring your generic, you must [create a machine](https://docs.viam.com/manage/fleet/machines/#add-a-new-machine).
 
 Navigate to the **Config** tab of your machine's page in [the Viam app](https://app.viam.com/).
-Click on the **Components** subtab and click **Create component**.
+Click on the plus icon and choose **Service**.
 Select the `generic` type, then select the `mcvella:messaging:twilio-sms` model.
-Click **Add module**, then enter a name for your generic and click **Create**.
+Click **Add module**, then enter a name for your Twilio SMS service and click **Create**.
 
 On the new component panel, copy and paste the following attribute template into your generic’s **Attributes** box:
 
 ```json
 {
-  TODO: INSERT SAMPLE ATTRIBUTES
+  "account_sid": "<your Twilio account SID>",
+  "auth_token": "<your Twilio auth token>",
+  "media_sid": "<your Twilio service SID if sending MMS>",
+  "default_from": "<default from phone number, optional>"
 }
 ```
 
@@ -41,25 +45,51 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
 
 | Name | Type | Inclusion | Description |
 | ---- | ---- | --------- | ----------- |
-| `todo1` | string | **Required** |  TODO |
-| `todo2` | string | Optional |  TODO |
+| `account_sid` | string | **Required** |  Your Twilio account SID. |
+| `auth_token` | string | **Required** |  Your Twilio auth token. |
+| `media_sid` | string | Optional |  Your Twilio auth token. |
+| `default_from` | string | Optional |  Default Twilio phone number to send from, optional as it can be passed on each send request. |
 
 ### Example configuration
 
 ```json
 {
-  TODO: INSERT SAMPLE CONFIGURATION(S)
+  "account_sid": "abc123adskjsd32lf23op",
+  "auth_token": "821ssdaodsd2aspods9k2",
+  "media_sid": "ms923odofdsopkfdsokd",
+  "default_from": "18775550123"
 }
 ```
 
-### Next steps
+## API
 
-_Add any additional information you want readers to know and direct them towards what to do next with this module._
-_For example:_ 
+The Twilio SMS service provides the [DoCommand](https://docs.viam.com/services/generic/#docommand) method from Viam's built-in [rdk:service:generic API](https://docs.viam.com/services/generic/)
 
-- To test your...
-- To write code against your...
+### do_command(*dictionary*)
 
-## Troubleshooting
+In the dictionary passed as a parameter to do_command(), you must specify a *command* by passing a the key *command* with one of the following values.
 
-_Add troubleshooting notes here._
+#### send
+
+When *send* is passed as the command, an SMS will be sent via the configured Twilio account.
+The following may also be passed:
+
+| Key | Type | Inclusion | Description |
+| ---- | ---- | --------- | ----------- |
+| `to` | string | **Required** |  The phone number to send the message to. |
+| `body` | string | Optional |  The message text. |
+| `from` | string | Optional |  The twilio phone number from which to send the message. If not specified, will use *default_from*, if configured. |
+| `media_path` | string | Optional |  A path on the Viam machine of a media file to send with the message.  If this is specified, *media_sid* must be configured. |
+
+#### get
+
+When *get* is passed as the command, messages received by the configured Twilio account will be retrieved, in LIFO order.
+The following may also be passed:
+
+| Key | Type | Inclusion | Description |
+| ---- | ---- | --------- | ----------- |
+| `number` | int | Optional |  The number of messages to retrieve, default 5, max 1000. |
+| `from` | string | Optional|  Filter messages by the phone number sent from. |
+| `to` | string | Optional |  Filter messages by the Twilio phone number received to. |
+| `time_start` | string | Optional |  Filter messages received on or after this time in "%d/%m/%Y %H:%M:%S" format. |
+| `time_end` | string | Optional |  Filter messages received on or before this time in "%d/%m/%Y %H:%M:%S" format. |
