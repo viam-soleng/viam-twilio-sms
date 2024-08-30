@@ -15,6 +15,7 @@ from viam.logging import getLogger
 
 import uuid
 import json
+import asyncio
 import requests
 import mimetypes
 from pathlib import Path
@@ -71,30 +72,72 @@ class twilioSMS(Generic, Reconfigurable):
         if 'command' in command:
             if command['command'] == 'send':
                 message_args = {}
+                media_asset = {}
                 # if media, create as a twilio asset first
                 if 'media_path' in command and (self.twilio_media_sid != ""):
-                    asset = self.twilio_client.serverless.v1.services(self.twilio_media_sid).assets.create(friendly_name=uuid.uuid4())
+                    media_uuid = str(uuid.uuid4())
+                    file_name = f"{media_uuid}-{Path(command['media_path']).name}"
+                    asset = self.twilio_client.serverless.v1.services(self.twilio_media_sid).assets.create(friendly_name=file_name)
+
+                    media_asset['asset_sid'] = asset.sid
 
                     # the twilio SDK does not have a method for actually uploading the media content so need to use the API directly
                     service_url = f'https://serverless-upload.twilio.com/v1/Services/{self.twilio_media_sid}'
                     upload_url = f'{service_url}/Assets/{asset.sid}/Versions'
 
                     file_contents = open(command['media_path'], 'rb')
+
                     # Create a new Asset Version
                     version_args = { "url": upload_url,
                                      "auth": (self.twilio_account_sid, self.twilio_auth_token),
                                      "files": {
-                                        'Content': (Path(command['media_path']).name, file_contents, mimetypes.guess_type(command['media_path'])[0])
+                                        'Content': (file_name, file_contents, mimetypes.guess_type(command['media_path'])[0])
                                     },
                                     "data": {
-                                        'Path': Path(command['media_path']).name,
+                                        'Path': file_name,
                                     'Visibility': 'protected',
                                     }
                     }
                     response = requests.post(**version_args)
                     new_version_sid = json.loads(response.text).get("sid")
-                    message_args['media_url'] = [f'https://serverless.twilio.com/v1/Services/{self.twilio_media_sid}/Functions/{asset.sid}/Versions/{new_version_sid}']
-                
+
+                    # create a build
+                    build = self.twilio_client.serverless.v1.services(self.twilio_media_sid).builds.create(
+                        asset_versions=[new_version_sid],
+                    )
+                    build_sid = build.sid
+
+                    # wait for build to complete
+                    build_status = ""
+                    while build_status != "completed":
+                        build_status = (
+                            self.twilio_client.serverless.v1.services(self.twilio_media_sid)
+                            .builds(build_sid)
+                            .build_status()
+                            .fetch()
+                        )
+                        await asyncio.sleep(.2)
+                        build_status = build_status.status
+
+                    media_asset['build_sid'] = build_sid
+
+                    environment = self.twilio_client.serverless.v1.services(self.twilio_media_sid).environments.create(
+                        unique_name=media_uuid, domain_suffix=media_uuid[:15]
+                    )
+
+                    media_asset['environment_sid'] = environment.sid
+
+                    # deploy the build
+                    deployment = (
+                        self.twilio_client.serverless.v1.services(self.twilio_media_sid)
+                        .environments(environment.sid)
+                        .deployments.create(build_sid=build_sid)
+                    )
+                    
+                    media_asset['deployment_sid'] = deployment.sid
+
+                    message_args['media_url'] = f"https://{environment.domain_name}/{file_name}" 
+
                 if 'from' in command:
                     message_args['from_'] = command['from']
                 else:
@@ -109,6 +152,28 @@ class twilioSMS(Generic, Reconfigurable):
                     result['error'] = message.error_message
                 else:
                     result['status'] = 'sent'
+
+                # clean up if media was sent
+
+                if 'deployment_sid' in media_asset:
+                    # the following seems like a hack, but appears to be the only way to delete the deployment
+                    deployment = (
+                        self.twilio_client.serverless.v1.services(self.twilio_media_sid)
+                        .environments(media_asset['environment_sid'])
+                        .deployments.create()
+                    )
+                    self.twilio_client.serverless.v1.services(self.twilio_media_sid).environments(
+                        media_asset['environment_sid']
+                    ).delete()
+                if 'build_sid' in media_asset:
+                    self.twilio_client.serverless.v1.services(self.twilio_media_sid).builds(
+                        media_asset['build_sid']
+                    ).delete()
+                if 'asset_sid' in media_asset:
+                    self.twilio_client.serverless.v1.services(self.twilio_media_sid).assets(
+                        media_asset['asset_sid']
+                    ).delete()
+
             elif command['command'] == 'get':
                 number = 5
                 if 'number' in command:

@@ -47,7 +47,7 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
 | ---- | ---- | --------- | ----------- |
 | `account_sid` | string | **Required** |  Your Twilio account SID. |
 | `auth_token` | string | **Required** |  Your Twilio auth token. |
-| `media_sid` | string | Optional |  Your Twilio auth token. |
+| `media_sid` | string | Optional |  Your Twilio service SID, if you plan on sending local media. |
 | `default_from` | string | Optional |  Default Twilio phone number to send from, optional as it can be passed on each send request. |
 
 ### Example configuration
