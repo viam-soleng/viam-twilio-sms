@@ -32,6 +32,8 @@ class twilioSMS(Generic, Reconfigurable):
     twilio_auth_token: str
     twilio_media_sid: str
     default_from: str
+    enforce_preset: bool
+    preset_messages: dict
 
     # Constructor
     @classmethod
@@ -49,6 +51,12 @@ class twilioSMS(Generic, Reconfigurable):
         auth_token = config.attributes.fields["auth_token"].string_value
         if auth_token == "":
             raise Exception("An auth_token must be defined")
+        enforce_preset = config.attributes.fields["enforce_preset"].bool_value
+        if enforce_preset == True:
+            attributes = struct_to_dict(config.attributes)
+            preset_messages = attributes.get("preset_messages")
+            if preset_messages is None:
+                raise Exception("preset_messages must be defined when enforce_preset is set to true")
         return
 
     # Handles attribute reconfiguration
@@ -58,6 +66,9 @@ class twilioSMS(Generic, Reconfigurable):
         self.twilio_client = Client(self.twilio_account_sid, self.twilio_auth_token)
         self.twilio_media_sid = config.attributes.fields["media_sid"].string_value or ""
         self.default_from = config.attributes.fields["default_from"].string_value or ""
+        self.enforce_preset = config.attributes.fields["enforce_preset"].bool_value or False
+        attributes = struct_to_dict(config.attributes)
+        self.preset_messages = attributes.get("preset_messages") or {}
         return
     
     async def do_command(
@@ -71,8 +82,16 @@ class twilioSMS(Generic, Reconfigurable):
 
         if 'command' in command:
             if command['command'] == 'send':
+
                 message_args = {}
                 media_asset = {}
+
+                if self.enforce_preset and not "preset" in command:
+                    return "preset message must be specified"
+
+                if "preset" in command:
+                    message_args['body'] = self.preset_messages[command['preset']]
+
                 # if media, create as a twilio asset first
                 if 'media_path' in command and (self.twilio_media_sid != ""):
                     media_uuid = str(uuid.uuid4())
@@ -143,7 +162,8 @@ class twilioSMS(Generic, Reconfigurable):
                 else:
                     message_args['from_'] = self.default_from
                 message_args['to'] = command['to']
-                message_args['body'] = command['body'] or ""
+                if not "preset" in command:
+                    message_args['body'] = command['body'] or ""
 
                 message = self.twilio_client.messages.create(**message_args)
 

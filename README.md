@@ -15,7 +15,7 @@ In order to send media (MMS), you must also set up a [Twilio service](https://co
 
 To use this module, follow the instructions to [add a module from the Viam Registry](https://docs.viam.com/registry/configure/#add-a-modular-resource-from-the-viam-registry) and select the `rdk:generic:mcvella:messaging:twilio-sms` model from the [`mcvella:messaging:twilio-sms` module](https://app.viam.com/module/rdk/mcvella:messaging:twilio-sms).
 
-## Configure your generic
+## Configure your Twilio SMS service
 
 > [!NOTE]  
 > Before configuring your generic, you must [create a machine](https://docs.viam.com/manage/fleet/machines/#add-a-new-machine).
@@ -49,6 +49,8 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
 | `auth_token` | string | **Required** |  Your Twilio auth token. |
 | `media_sid` | string | Optional |  Your Twilio service SID, if you plan on sending local media. |
 | `default_from` | string | Optional |  Default Twilio phone number to send from, optional as it can be passed on each send request. |
+| `preset_messages` | object | Optional|  A set of key (preset name) and value (preset message body) pairs that can be used to send pre-configured text |
+| `enforce_preset` | boolean | Optional, default false |  If set to true, preset_messages must be configured and a preset message must be selected when sending. |
 
 ### Example configuration
 
@@ -80,6 +82,7 @@ The following may also be passed:
 | `body` | string | Optional |  The message text. |
 | `from` | string | Optional |  The twilio phone number from which to send the message. If not specified, will use *default_from*, if configured. |
 | `media_path` | string | Optional |  A path on the Viam machine of a media file to send with the message.  If this is specified, *media_sid* must be configured. |
+| `preset` | string | Optional |  The name of a configured preset message, configured with preset_messages.  If the service is configured with enforce_preset=true, this becomes required. |
 
 #### get
 
