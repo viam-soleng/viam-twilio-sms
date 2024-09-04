@@ -83,6 +83,8 @@ The following may also be passed:
 | `from` | string | Optional |  The twilio phone number from which to send the message. If not specified, will use *default_from*, if configured. |
 | `media_path` | string | Optional |  A path on the Viam machine of a media file to send with the message.  If this is specified, *media_sid* must be configured. |
 | `media_url` | string | Optional |  A publicly reachable URL for media to send with the message. |
+| `media_base64` | string | Optional |  A base64 encoded ascii string for media to send with the message. If passed, media_mime_type must also be set. |
+| `media_mime_type` | string | Optional |  The MIME type of the base64 encoded ascii string for media to send with the message. |
 | `preset` | string | Optional |  The name of a configured preset message, configured with preset_messages.  If the service is configured with enforce_preset=true, this becomes required. |
 
 #### get

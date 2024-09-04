@@ -18,6 +18,8 @@ import json
 import asyncio
 import requests
 import mimetypes
+import base64
+from io import BytesIO
 from pathlib import Path
 from datetime import datetime
 from twilio.rest import Client
@@ -93,9 +95,17 @@ class twilioSMS(Generic, Reconfigurable):
                     message_args['body'] = self.preset_messages[command['preset']]
 
                 # if local media, create as a twilio asset first
-                if 'media_path' in command and (self.twilio_media_sid != ""):
+                if (('media_path' in command) or ('media_base64' in command)) and (self.twilio_media_sid != ""):
                     media_uuid = str(uuid.uuid4())
-                    file_name = f"{media_uuid}-{Path(command['media_path']).name}"
+                    if 'media_path' in command:
+                        file_name = f"{media_uuid}-{Path(command['media_path']).name}"
+                        file_contents = open(command['media_path'], 'rb')
+                        mime_type = mimetypes.guess_type(command['media_path'])[0]
+                    else:
+                        file_name = f"{media_uuid}-media"
+                        file_contents = BytesIO(base64.b64decode(command['media_base64']))
+                        mime_type = command['media_mime_type']
+                        
                     asset = self.twilio_client.serverless.v1.services(self.twilio_media_sid).assets.create(friendly_name=file_name)
 
                     media_asset['asset_sid'] = asset.sid
@@ -104,13 +114,11 @@ class twilioSMS(Generic, Reconfigurable):
                     service_url = f'https://serverless-upload.twilio.com/v1/Services/{self.twilio_media_sid}'
                     upload_url = f'{service_url}/Assets/{asset.sid}/Versions'
 
-                    file_contents = open(command['media_path'], 'rb')
-
                     # Create a new Asset Version
                     version_args = { "url": upload_url,
                                      "auth": (self.twilio_account_sid, self.twilio_auth_token),
                                      "files": {
-                                        'Content': (file_name, file_contents, mimetypes.guess_type(command['media_path'])[0])
+                                        'Content': (file_name, file_contents, mime_type)
                                     },
                                     "data": {
                                         'Path': file_name,
