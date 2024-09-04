@@ -167,7 +167,7 @@ class twilioSMS(Generic, Reconfigurable):
 
                 message = self.twilio_client.messages.create(**message_args)
 
-                if message.error_message != 0:
+                if message.error_message != None:
                     result['status'] = 'error'
                     result['error'] = message.error_message
                 else:
