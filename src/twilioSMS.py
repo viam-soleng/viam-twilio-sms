@@ -92,7 +92,7 @@ class twilioSMS(Generic, Reconfigurable):
                 if "preset" in command:
                     message_args['body'] = self.preset_messages[command['preset']]
 
-                # if media, create as a twilio asset first
+                # if local media, create as a twilio asset first
                 if 'media_path' in command and (self.twilio_media_sid != ""):
                     media_uuid = str(uuid.uuid4())
                     file_name = f"{media_uuid}-{Path(command['media_path']).name}"
@@ -156,6 +156,8 @@ class twilioSMS(Generic, Reconfigurable):
                     media_asset['deployment_sid'] = deployment.sid
 
                     message_args['media_url'] = f"https://{environment.domain_name}/{file_name}" 
+                elif 'media_url' in command:
+                     message_args['media_url'] = command['media_url']
 
                 if 'from' in command:
                     message_args['from_'] = command['from']
