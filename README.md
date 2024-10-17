@@ -87,6 +87,11 @@ The following may also be passed:
 | `media_mime_type` | string | Optional |  The MIME type of the base64 encoded ascii string for media to send with the message. |
 | `preset` | string | Optional |  The name of a configured preset message, configured with preset_messages.  If the service is configured with enforce_preset=true, this becomes required. |
 
+Example:
+```python
+sms.do_command({"comand": "send", "body": "Hello there", "to": "5551234567"})
+```
+
 #### get
 
 When *get* is passed as the command, messages received by the configured Twilio account will be retrieved, in LIFO order.
@@ -99,3 +104,8 @@ The following may also be passed:
 | `to` | string | Optional |  Filter messages by the Twilio phone number received to. |
 | `time_start` | string | Optional |  Filter messages received on or after this time in "%d/%m/%Y %H:%M:%S" format. |
 | `time_end` | string | Optional |  Filter messages received on or before this time in "%d/%m/%Y %H:%M:%S" format. |
+
+Example:
+```python
+sms.do_command({"comand": "get", "from": "5551234567"})
+```
