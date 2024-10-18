@@ -221,7 +221,10 @@ class twilioSMS(Generic, Reconfigurable):
                 messages = self.twilio_client.messages.list(**message_params)
                 result['messages'] = []
                 for record in messages:
-                    result['messages'].append({'body': record.body, 'to': record.to, 'from': record.from_, 'sent': record.date_sent.strftime("%d/%m/%Y %H:%M:%S") })
+                    sent =  ""
+                    if record.date_sent:
+                        sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
+                    result['messages'].append({'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent })
                 result['status'] = 'retrieved'
         else:
             result['status'] = 'error'
