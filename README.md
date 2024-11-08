@@ -89,7 +89,7 @@ The following may also be passed:
 
 Example:
 ```python
-sms.do_command({"comand": "send", "body": "Hello there", "to": "5551234567"})
+sms.do_command({"command": "send", "body": "Hello there", "to": "5551234567"})
 ```
 
 #### get
@@ -107,5 +107,5 @@ The following may also be passed:
 
 Example:
 ```python
-sms.do_command({"comand": "get", "from": "5551234567"})
+sms.do_command({"command": "get", "from": "5551234567"})
 ```
