@@ -18,7 +18,7 @@ To use this module, follow the instructions to [add a module from the Viam Regis
 ## Configure your Twilio SMS service
 
 > [!NOTE]  
-> Before configuring your generic, you must [create a machine](https://docs.viam.com/manage/fleet/machines/#add-a-new-machine).
+> Before configuring your Twilio service, you must [create a machine](https://docs.viam.com/manage/fleet/machines/#add-a-new-machine).
 
 Navigate to the **Config** tab of your machine's page in [the Viam app](https://app.viam.com/).
 Click on the plus icon and choose **Service**.
@@ -109,3 +109,5 @@ Example:
 ```python
 sms.do_command({"command": "get", "from": "5551234567"})
 ```
+
+Note that Twilio rate-limits message retrieval, so if you are building a solution that requires realtime notifications of messages, consider using Twilio webhooks instead of [get](#get).
