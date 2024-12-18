@@ -32,7 +32,13 @@ On the new component panel, copy and paste the following attribute template into
   "account_sid": "<your Twilio account SID>",
   "auth_token": "<your Twilio auth token>",
   "media_sid": "<your Twilio service SID if sending MMS>",
-  "default_from": "<default from phone number, optional>"
+  "default_from": "<default from phone number, optional>",
+  "store_log_in_data_management": false,
+  "app_api_key": "daifdkaddkdfhshfeasw",
+  "app_api_key_id": "weygwegqeyygadydagfd",
+  "organization_id": "abc123asssa",
+  "part_id": "9dosadsaewad"
+
 }
 ```
 
@@ -41,7 +47,7 @@ On the new component panel, copy and paste the following attribute template into
 
 ### Attributes
 
-The following attributes are available for `rdk:generic:mcvella:messaging:twilio-sms` generics:
+The following attributes are available for `rdk:generic:mcvella:messaging:twilio-sms`:
 
 | Name | Type | Inclusion | Description |
 | ---- | ---- | --------- | ----------- |
@@ -51,6 +57,11 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
 | `default_from` | string | Optional |  Default Twilio phone number to send from, optional as it can be passed on each send request. |
 | `preset_messages` | object | Optional|  A set of key (preset name) and value (preset message body) pairs that can be used to send pre-configured text |
 | `enforce_preset` | boolean | Optional, default false |  If set to true, preset_messages must be configured and a preset message must be selected when sending. |
+| `store_log_in_data_management` | boolean | Optional, default false |  If set to true, will run a background loop storing Twilio log data in data management for use by the [get](#get) command, which in some cases help avoid Twilio rate limiting. |
+| `app_api_key` | string | Optional, required if store_log_in_data_management is true | Viam app api key. |
+| `app_api_key_id` | string | Optional, required if store_log_in_data_management is true | Viam app api key ID. |
+| `organization_id` | string | Optional, required if store_log_in_data_management is true | Viam organization ID for which to store log data. |
+| `part_id` | string | Optional, required if store_log_in_data_management is true | Part ID for which to store log data. |
 
 ### Example configuration
 
@@ -110,4 +121,4 @@ Example:
 sms.do_command({"command": "get", "from": "5551234567"})
 ```
 
-Note that Twilio rate-limits message retrieval, so if you are building a solution that requires realtime notifications of messages, consider using Twilio webhooks instead of [get](#get).
+Note that Twilio rate-limits message retrieval, so if you are building a solution that requires realtime notifications of messages, consider using Twilio webhooks instead of [get](#get), or leverage the *store_log_in_data_management* feature.

@@ -9,10 +9,15 @@ from viam.proto.common import ResourceName, Vector3
 from viam.resource.base import ResourceBase
 from viam.resource.types import Model, ModelFamily
 from viam.utils import ValueTypes, struct_to_dict
+from viam.app.viam_client import ViamClient
+from viam.rpc.dial import Credentials, DialOptions
 
 from viam.services.generic import Generic
 from viam.logging import getLogger
 
+from datetime import datetime, timedelta
+import pytz
+import bson
 import uuid
 import json
 import asyncio
@@ -29,6 +34,7 @@ LOGGER = getLogger(__name__)
 class twilioSMS(Generic, Reconfigurable):
 
     MODEL: ClassVar[Model] = Model(ModelFamily("mcvella", "messaging"), "twilio-sms")
+    name: str
     twilio_client: Client
     twilio_account_sid: str
     twilio_auth_token: str
@@ -36,6 +42,13 @@ class twilioSMS(Generic, Reconfigurable):
     default_from: str
     enforce_preset: bool
     preset_messages: dict
+    app_client: None
+    api_key_id: str
+    api_key: str
+    organization_id: str
+    part_id: str
+    run_loop: bool = False
+    store_log_in_data_management: bool = False
 
     # Constructor
     @classmethod
@@ -63,6 +76,8 @@ class twilioSMS(Generic, Reconfigurable):
 
     # Handles attribute reconfiguration
     def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]):
+        self.run_loop = False
+
         self.twilio_account_sid = config.attributes.fields["account_sid"].string_value
         self.twilio_auth_token = config.attributes.fields["auth_token"].string_value
         self.twilio_client = Client(self.twilio_account_sid, self.twilio_auth_token)
@@ -71,8 +86,58 @@ class twilioSMS(Generic, Reconfigurable):
         self.enforce_preset = config.attributes.fields["enforce_preset"].bool_value or False
         attributes = struct_to_dict(config.attributes)
         self.preset_messages = attributes.get("preset_messages") or {}
+        self.store_log_in_data_management = config.attributes.fields["store_log_in_data_management"].bool_value or False
+        self.api_key = config.attributes.fields["app_api_key"].string_value or ''
+        self.api_key_id = config.attributes.fields["app_api_key_id"].string_value or ''
+        self.organization_id = config.attributes.fields["organization_id"].string_value or ''
+        self.part_id = config.attributes.fields["part_id"].string_value or ''
+
+        self.name = config.name
+
+        self.run_loop = True
+        if self.store_log_in_data_management:
+            asyncio.ensure_future(self.log_check())
+
         return
     
+    async def viam_connect(self) -> ViamClient:
+        dial_options = DialOptions.with_api_key( 
+            api_key=self.api_key,
+            api_key_id=self.api_key_id
+        )
+        return await ViamClient.create_from_dial_options(dial_options)
+    
+    async def log_check(self):
+        LOGGER.info("Starting Twilio log check loop")
+        
+        if (self.api_key != '' and self.api_key_id != ''):
+            self.app_client = await self.viam_connect()
+
+            message_params = { 'limit': 100, 'page_size': 1000}
+            current_time = datetime.now(pytz.utc)
+            start_time = current_time - timedelta(hours=1)
+
+            while self.run_loop:
+                message_params['date_sent_after'] = start_time
+                start_time = datetime.now(pytz.utc)
+                messages = self.twilio_client.messages.list(**message_params)
+                for record in messages:
+                    sent =  ""
+                    if record.date_sent:
+                        sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
+
+                    message = {'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent }
+                    print(message)
+
+                    format_time = datetime.strptime(message['sent'], '%d/%m/%Y %H:%M:%S')
+                    await self.app_client.data_client.tabular_data_capture_upload(tabular_data=[{"readings": message}], part_id=self.part_id, 
+                                                                            component_type="rdk:component:sensor", component_name=self.name,
+                                                                            method_name="Readings", tags=["sms_message"],
+                                                                            data_request_times=[(format_time, format_time)])
+                await asyncio.sleep(2)
+        else:
+            LOGGER.error("app_api_key and app_api_key_id must be configured to enable store_log_in_data_management")
+
     async def do_command(
                 self,
                 command: Mapping[str, ValueTypes],
@@ -205,28 +270,60 @@ class twilioSMS(Generic, Reconfigurable):
                     ).delete()
 
             elif command['command'] == 'get':
-                number = 5
-                if 'number' in command:
-                    number = command['number']
-
-                message_params = {'limit':number, 'page_size':1000}
-                if 'from' in command:
-                    message_params['from_'] = command['from']
-                if 'to' in command:
-                    message_params['to'] = command['to']
-                if 'time_start' in command:
-                    message_params['date_sent_after'] = datetime.strptime(command['time_start'], '%d/%m/%Y %H:%M:%S')
-                if 'time_end' in command:
-                    message_params['date_sent_before'] = datetime.strptime(command['time_end'], '%d/%m/%Y %H:%M:%S')
-                messages = self.twilio_client.messages.list(**message_params)
-                result['messages'] = []
-                for record in messages:
-                    sent =  ""
-                    if record.date_sent:
-                        sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
-                    result['messages'].append({'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent })
-                result['status'] = 'retrieved'
+                result = await self.get(command)
         else:
             result['status'] = 'error'
             result['error'] = 'command is required'
         return result  
+    
+    async def get(self, command):
+        result = {}
+        number = 5
+        if 'number' in command:
+            number = command['number']
+
+        if self.store_log_in_data_management:
+            query = []
+            match = {"component_name": self.name}
+            if "from" in command:
+                match["data.readings.from"] = { "$eq": command["from"] }
+            if "to" in command:
+                match["data.readings.to"] = { "$eq": command["to"] }
+            expr = {}
+            if "time_start" in command:
+                expr["$gte"] = [ "$time_received", { "$toDate": datetime.strptime(command['time_start'], "%d/%m/%Y %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.000Z") }]
+            if "time_end" in command:
+                expr["$lte"] = [ "$time_received", { "$toDate": datetime.strptime(command['time_end'], "%d/%m/%Y %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.000Z") }]
+            if len(expr):
+                match["$expr"] = expr
+            query.append(bson.encode({"$match": match }))
+            query.append(bson.encode({"$sort": { "time_received": -1 } }))
+            query.append(bson.encode({ "$limit": number }))
+            tabular_data = await self.app_client.data_client.tabular_data_by_mql(organization_id=self.organization_id, mql_binary=query)
+            result['messages'] = []
+            for tabular in tabular_data:
+                sent = ""
+                sent = tabular['time_received'].strftime("%d/%m/%Y %H:%M:%S")
+                data = tabular["data"]["readings"]
+                result['messages'].append({'body': data["body"], 'to': data["to"], 'from': data["from"], 'sent': sent })
+            result['status'] = 'retrieved'
+        else:
+            message_params = {'limit':number, 'page_size':1000}
+            if 'from' in command:
+                message_params['from_'] = command['from']
+            if 'to' in command:
+                message_params['to'] = command['to']
+            if 'time_start' in command:
+                message_params['date_sent_after'] = datetime.strptime(command['time_start'], '%d/%m/%Y %H:%M:%S')
+            if 'time_end' in command:
+                message_params['date_sent_before'] = datetime.strptime(command['time_end'], '%d/%m/%Y %H:%M:%S')
+            messages = self.twilio_client.messages.list(**message_params)
+            result['messages'] = []
+            for record in messages:
+                sent =  ""
+                if record.date_sent:
+                    sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
+                result['messages'].append({'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent })
+            result['status'] = 'retrieved'
+        
+        return result
