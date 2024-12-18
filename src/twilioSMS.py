@@ -286,8 +286,12 @@ class twilioSMS(Generic, Reconfigurable):
             query = []
             match = {"component_name": self.name}
             if "from" in command:
+                if not command["from"].startswith("+"):
+                    command["from"] = "+1" + command["from"]
                 match["data.readings.from"] = { "$eq": command["from"] }
             if "to" in command:
+                if not command["to"].startswith("+"):
+                    command["to"] = "+1" + command["to"]
                 match["data.readings.to"] = { "$eq": command["to"] }
             expr = {}
             if "time_start" in command:
