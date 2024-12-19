@@ -16,6 +16,7 @@ from viam.services.generic import Generic
 from viam.logging import getLogger
 
 from datetime import datetime, timedelta
+import traceback
 import pytz
 import bson
 import uuid
@@ -118,23 +119,28 @@ class twilioSMS(Generic, Reconfigurable):
             start_time = current_time - timedelta(hours=1)
 
             while self.run_loop:
-                message_params['date_sent_after'] = start_time
-                start_time = datetime.now(pytz.utc)
-                messages = self.twilio_client.messages.list(**message_params)
-                for record in messages:
-                    sent =  ""
-                    if record.date_sent:
-                        sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
+                try:
+                    message_params['date_sent_after'] = start_time
+                    start_time = datetime.now(pytz.utc)
+                    messages = self.twilio_client.messages.list(**message_params)
+                    for record in messages:
+                        sent =  ""
+                        if record.date_sent:
+                            sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
 
-                    message = {'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent }
-                    print(message)
+                        message = {'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent }
+                        print(message)
 
-                    format_time = datetime.strptime(message['sent'], '%d/%m/%Y %H:%M:%S')
-                    await self.app_client.data_client.tabular_data_capture_upload(tabular_data=[{"readings": message}], part_id=self.part_id, 
-                                                                            component_type="rdk:component:sensor", component_name=self.name,
-                                                                            method_name="Readings", tags=["sms_message"],
-                                                                            data_request_times=[(format_time, format_time)])
-                await asyncio.sleep(2)
+                        format_time = datetime.strptime(message['sent'], '%d/%m/%Y %H:%M:%S')
+                        await self.app_client.data_client.tabular_data_capture_upload(tabular_data=[{"readings": message}], part_id=self.part_id, 
+                                                                                component_type="rdk:component:sensor", component_name=self.name,
+                                                                                method_name="Readings", tags=["sms_message"],
+                                                                                data_request_times=[(format_time, format_time)])
+                    await asyncio.sleep(2)
+                except Exception as e:
+                    LOGGER.error(f'Error in sync loop: {e}')
+                    LOGGER.error(traceback.print_exc())
+                    await asyncio.sleep(1)
         else:
             LOGGER.error("app_api_key and app_api_key_id must be configured to enable store_log_in_data_management")
 
