@@ -2,7 +2,7 @@ from typing import ClassVar, Mapping, Sequence, Any, Dict, Optional, Tuple, Fina
 from typing_extensions import Self
 from typing import Final
 
-from viam.resource.types import RESOURCE_NAMESPACE_RDK, RESOURCE_TYPE_SERVICE, Subtype
+from viam.resource.types import RESOURCE_NAMESPACE_RDK, RESOURCE_TYPE_SERVICE
 from viam.module.types import Reconfigurable
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName, Vector3
@@ -42,7 +42,6 @@ class twilioSMS(Generic, Reconfigurable):
     default_from: str
     enforce_preset: bool
     preset_messages: dict
-    template_vars: dict = {}
     app_client: None
     api_key_id: str
     api_key: str
@@ -87,7 +86,6 @@ class twilioSMS(Generic, Reconfigurable):
         self.enforce_preset = config.attributes.fields["enforce_preset"].bool_value or False
         attributes = struct_to_dict(config.attributes)
         self.preset_messages = attributes.get("preset_messages", {})
-        self.template_vars = attributes.get("template_vars", {})
         self.store_log_in_data_management = config.attributes.fields["store_log_in_data_management"].bool_value or False
         self.api_key = config.attributes.fields["app_api_key"].string_value or ''
         self.api_key_id = config.attributes.fields["app_api_key_id"].string_value or ''
@@ -243,8 +241,9 @@ class twilioSMS(Generic, Reconfigurable):
                     message_args['body'] = command['body'] or ""
 
                 # replace templated params
-                for key, val in self.template_vars.items():
-                    message_args['body'] = message_args['body'].replace(f"<<{key}>>", val)
+                if 'template_vars' in command:
+                    for key, val in command['template_vars'].items():
+                        message_args['body'] = message_args['body'].replace(f"<<{key}>>", val)
                 
                 message = self.twilio_client.messages.create(**message_args)
 
