@@ -1,4 +1,4 @@
-viam-sdk==0.36.0
+viam-sdk==0.41.1
 twilio==9.2.3
 pytz
 pymongo

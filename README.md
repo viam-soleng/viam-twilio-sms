@@ -55,7 +55,7 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
 | `auth_token` | string | **Required** |  Your Twilio auth token. |
 | `media_sid` | string | Optional |  Your Twilio service SID, if you plan on sending local media. |
 | `default_from` | string | Optional |  Default Twilio phone number to send from, optional as it can be passed on each send request. |
-| `preset_messages` | object | Optional|  A set of key (preset name) and value (preset message body) pairs that can be used to send pre-configured text |
+| `preset_messages` | object | Optional|  A set of key (preset name) and value (preset message body) pairs that can be used to send pre-configured text. Template strings can be embedded within double angle brackets, for example: <<to_replace>> |
 | `enforce_preset` | boolean | Optional, default false |  If set to true, preset_messages must be configured and a preset message must be selected when sending. |
 | `store_log_in_data_management` | boolean | Optional, default false |  If set to true, will run a background loop storing Twilio log data in data management for use by the [get](#get) command, which in some cases help avoid Twilio rate limiting. |
 | `app_api_key` | string | Optional, required if store_log_in_data_management is true | Viam app api key. |
@@ -70,7 +70,10 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
   "account_sid": "abc123adskjsd32lf23op",
   "auth_token": "821ssdaodsd2aspods9k2",
   "media_sid": "ms923odofdsopkfdsokd",
-  "default_from": "18775550123"
+  "default_from": "18775550123",
+  "preset_messages": {
+    "alert": "This is an alert message about <<about>>"
+  }
 }
 ```
 
@@ -97,8 +100,10 @@ The following may also be passed:
 | `media_base64` | string | Optional |  A base64 encoded ascii string for media to send with the message. If passed, media_mime_type must also be set. |
 | `media_mime_type` | string | Optional |  The MIME type of the base64 encoded ascii string for media to send with the message. |
 | `preset` | string | Optional |  The name of a configured preset message, configured with preset_messages.  If the service is configured with enforce_preset=true, this becomes required. |
+| `template_vars` | object | Optional | A key/value pair of template parameter names and values to insert into preset messages. |
 
 Example:
+
 ```python
 sms.do_command({"command": "send", "body": "Hello there", "to": "5551234567"})
 ```

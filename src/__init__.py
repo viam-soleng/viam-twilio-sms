@@ -7,4 +7,4 @@ from viam.resource.registry import Registry, ResourceCreatorRegistration
 
 from .twilioSMS import twilioSMS
 
-Registry.register_resource_creator(Generic.SUBTYPE, twilioSMS.MODEL, ResourceCreatorRegistration(twilioSMS.new, twilioSMS.validate))
+Registry.register_resource_creator(Generic.API, twilioSMS.MODEL, ResourceCreatorRegistration(twilioSMS.new, twilioSMS.validate))
