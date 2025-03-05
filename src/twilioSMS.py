@@ -13,7 +13,6 @@ from viam.app.viam_client import ViamClient
 from viam.rpc.dial import Credentials, DialOptions
 
 from viam.services.generic import Generic
-from viam.logging import getLogger
 
 from datetime import datetime, timedelta
 import pytz
