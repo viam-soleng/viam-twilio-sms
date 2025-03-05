@@ -129,7 +129,6 @@ class twilioSMS(Generic, Reconfigurable):
                             sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
 
                         message = {'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent }
-                        print(message)
 
                         format_time = datetime.strptime(message['sent'], '%d/%m/%Y %H:%M:%S')
                         await self.app_client.data_client.tabular_data_capture_upload(tabular_data=[{"readings": message}], part_id=self.part_id, 
