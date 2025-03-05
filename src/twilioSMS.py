@@ -29,8 +29,6 @@ from pathlib import Path
 from datetime import datetime
 from twilio.rest import Client
 
-LOGGER = getLogger(__name__)
-
 class twilioSMS(Generic, Reconfigurable):
 
     MODEL: ClassVar[Model] = Model(ModelFamily("mcvella", "messaging"), "twilio-sms")
@@ -47,8 +45,8 @@ class twilioSMS(Generic, Reconfigurable):
     api_key: str
     organization_id: str
     part_id: str
-    run_loop: bool = False
     store_log_in_data_management: bool = False
+    stop_log_check = None
 
     # Constructor
     @classmethod
@@ -76,7 +74,6 @@ class twilioSMS(Generic, Reconfigurable):
 
     # Handles attribute reconfiguration
     def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]):
-        self.run_loop = False
 
         self.twilio_account_sid = config.attributes.fields["account_sid"].string_value
         self.twilio_auth_token = config.attributes.fields["auth_token"].string_value
@@ -94,9 +91,14 @@ class twilioSMS(Generic, Reconfigurable):
 
         self.name = config.name
 
-        self.run_loop = True
+
+        if self.stop_log_check != None:
+            self.stop_log_check.set()
+        
         if self.store_log_in_data_management:
-            asyncio.ensure_future(self.log_check())
+            stop_event = asyncio.Event()
+            self.stop_log_check = stop_event
+            asyncio.create_task(self.log_check(stop_event))
 
         return
     
@@ -107,8 +109,8 @@ class twilioSMS(Generic, Reconfigurable):
         )
         return await ViamClient.create_from_dial_options(dial_options)
     
-    async def log_check(self):
-        LOGGER.info("Starting Twilio log check loop")
+    async def log_check(self, stop_event):
+        self.logger.info("Starting Twilio log check loop")
         
         if (self.api_key != '' and self.api_key_id != ''):
             self.app_client = await self.viam_connect()
@@ -117,26 +119,29 @@ class twilioSMS(Generic, Reconfigurable):
             current_time = datetime.now(pytz.utc)
             start_time = current_time - timedelta(hours=1)
 
-            while self.run_loop:
-                message_params['date_sent_after'] = start_time
-                start_time = datetime.now(pytz.utc)
-                messages = self.twilio_client.messages.list(**message_params)
-                for record in messages:
-                    sent =  ""
-                    if record.date_sent:
-                        sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
+            while not stop_event.is_set():
+                try:
+                    message_params['date_sent_after'] = start_time
+                    start_time = datetime.now(pytz.utc)
+                    messages = self.twilio_client.messages.list(**message_params)
+                    for record in messages:
+                        sent =  ""
+                        if record.date_sent:
+                            sent = record.date_sent.strftime("%d/%m/%Y %H:%M:%S")
 
-                    message = {'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent }
-                    print(message)
+                        message = {'body': record.body, 'to': record.to, 'from': record.from_, 'sent': sent }
+                        print(message)
 
-                    format_time = datetime.strptime(message['sent'], '%d/%m/%Y %H:%M:%S')
-                    await self.app_client.data_client.tabular_data_capture_upload(tabular_data=[{"readings": message}], part_id=self.part_id, 
-                                                                            component_type="rdk:component:sensor", component_name=self.name,
-                                                                            method_name="Readings", tags=["sms_message"],
-                                                                            data_request_times=[(format_time, format_time)])
+                        format_time = datetime.strptime(message['sent'], '%d/%m/%Y %H:%M:%S')
+                        await self.app_client.data_client.tabular_data_capture_upload(tabular_data=[{"readings": message}], part_id=self.part_id, 
+                                                                                component_type="rdk:component:sensor", component_name=self.name,
+                                                                                method_name="Readings", tags=["sms_message"],
+                                                                                data_request_times=[(format_time, format_time)])
+                except Exception as e:
+                    self.logger.error(f'Error in log check loop: {e}')
                 await asyncio.sleep(2)
         else:
-            LOGGER.error("app_api_key and app_api_key_id must be configured to enable store_log_in_data_management")
+            self.logger.error("app_api_key and app_api_key_id must be configured to enable store_log_in_data_management")
 
     async def do_command(
                 self,
