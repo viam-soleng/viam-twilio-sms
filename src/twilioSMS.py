@@ -23,6 +23,7 @@ import asyncio
 import requests
 import mimetypes
 import base64
+import re
 from io import BytesIO
 from pathlib import Path
 from datetime import datetime
@@ -294,9 +295,9 @@ class twilioSMS(Generic, Reconfigurable):
             query = []
             match = {"component_name": self.name}
             if "from" in command:
-                match["data.readings.from"] = { "$eq": command["from"] }
+                match["data.readings.from"] = { "$eq": format_us_phone_number(command["from"]) }
             if "to" in command:
-                match["data.readings.to"] = { "$eq": command["to"] }
+                match["data.readings.to"] = { "$eq": format_us_phone_number(command["to"]) }
             expr = {}
             if "time_start" in command:
                 expr["$gte"] = [ "$time_received", { "$toDate": datetime.strptime(command['time_start'], "%d/%m/%Y %H:%M:%S").strftime("%Y-%m-%dT%H:%M:%S.000Z") }]
@@ -318,9 +319,9 @@ class twilioSMS(Generic, Reconfigurable):
         else:
             message_params = {'limit':number, 'page_size':1000}
             if 'from' in command:
-                message_params['from_'] = command['from']
+                message_params['from_'] = format_us_phone_number(command['from'])
             if 'to' in command:
-                message_params['to'] = command['to']
+                message_params['to'] = format_us_phone_number(command['to'])
             if 'time_start' in command:
                 message_params['date_sent_after'] = datetime.strptime(command['time_start'], '%d/%m/%Y %H:%M:%S')
             if 'time_end' in command:
@@ -335,3 +336,17 @@ class twilioSMS(Generic, Reconfigurable):
             result['status'] = 'retrieved'
         
         return result
+    
+def format_us_phone_number(number: str) -> str:
+    # Remove all non-numeric characters
+    digits = re.sub(r"\D", "", number)
+
+    # Ensure it has the correct country code
+    if len(digits) == 10:  # If it's a US number without country code
+        digits = "1" + digits
+    elif len(digits) == 11 and digits.startswith("1"):
+        pass  # Already correctly formatted
+    else:
+        raise ValueError("Invalid phone number format")
+
+    return f"+{digits}"
