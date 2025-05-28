@@ -37,6 +37,7 @@ class twilioSMS(Generic, Reconfigurable):
     twilio_account_sid: str
     twilio_auth_token: str
     twilio_media_sid: str
+    twilio_environment_sid: Optional[str]
     default_from: str
     enforce_preset: bool
     preset_messages: dict
@@ -79,6 +80,7 @@ class twilioSMS(Generic, Reconfigurable):
         self.twilio_auth_token = config.attributes.fields["auth_token"].string_value
         self.twilio_client = Client(self.twilio_account_sid, self.twilio_auth_token)
         self.twilio_media_sid = config.attributes.fields["media_sid"].string_value or ""
+        self.twilio_environment_sid = config.attributes.fields["environment_sid"].string_value or None
         self.default_from = config.attributes.fields["default_from"].string_value or ""
         self.enforce_preset = config.attributes.fields["enforce_preset"].bool_value or False
         attributes = struct_to_dict(config.attributes)
@@ -217,11 +219,14 @@ class twilioSMS(Generic, Reconfigurable):
 
                     media_asset['build_sid'] = build_sid
 
-                    environment = self.twilio_client.serverless.v1.services(self.twilio_media_sid).environments.create(
-                        unique_name=media_uuid, domain_suffix=media_uuid[:15]
-                    )
-
-                    media_asset['environment_sid'] = environment.sid
+                    if self.twilio_environment_sid:
+                        environment = self.twilio_client.serverless.v1.services(self.twilio_media_sid).environments(self.twilio_environment_sid).fetch()
+                        media_asset['environment_sid'] = environment.sid
+                    else:
+                        environment = self.twilio_client.serverless.v1.services(self.twilio_media_sid).environments.create(
+                            unique_name=media_uuid, domain_suffix=media_uuid[:15]
+                        )
+                        media_asset['environment_sid'] = environment.sid
 
                     # deploy the build
                     deployment = (
@@ -258,7 +263,6 @@ class twilioSMS(Generic, Reconfigurable):
                     result['status'] = 'sent'
 
                 # clean up if media was sent
-
                 if 'deployment_sid' in media_asset:
                     # the following seems like a hack, but appears to be the only way to delete the deployment
                     deployment = (
@@ -266,9 +270,11 @@ class twilioSMS(Generic, Reconfigurable):
                         .environments(media_asset['environment_sid'])
                         .deployments.create()
                     )
-                    self.twilio_client.serverless.v1.services(self.twilio_media_sid).environments(
-                        media_asset['environment_sid']
-                    ).delete()
+                    # Only delete the environment if we created it (i.e. if environment_sid was not provided)
+                    if not self.twilio_environment_sid:
+                        self.twilio_client.serverless.v1.services(self.twilio_media_sid).environments(
+                            media_asset['environment_sid']
+                        ).delete()
                 if 'build_sid' in media_asset:
                     self.twilio_client.serverless.v1.services(self.twilio_media_sid).builds(
                         media_asset['build_sid']

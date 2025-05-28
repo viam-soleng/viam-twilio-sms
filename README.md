@@ -25,20 +25,20 @@ Click on the plus icon and choose **Service**.
 Select the `generic` type, then select the `mcvella:messaging:twilio-sms` model.
 Click **Add module**, then enter a name for your Twilio SMS service and click **Create**.
 
-On the new component panel, copy and paste the following attribute template into your generic’s **Attributes** box:
+On the new component panel, copy and paste the following attribute template into your generic's **Attributes** box:
 
 ```json
 {
   "account_sid": "<your Twilio account SID>",
   "auth_token": "<your Twilio auth token>",
   "media_sid": "<your Twilio service SID if sending MMS>",
+  "environment_sid": "<your Twilio environment SID if reusing an existing environment for media uploads, optional>",
   "default_from": "<default from phone number, optional>",
   "store_log_in_data_management": false,
   "app_api_key": "daifdkaddkdfhshfeasw",
   "app_api_key_id": "weygwegqeyygadydagfd",
   "organization_id": "abc123asssa",
   "part_id": "9dosadsaewad"
-
 }
 ```
 
@@ -54,6 +54,7 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
 | `account_sid` | string | **Required** |  Your Twilio account SID. |
 | `auth_token` | string | **Required** |  Your Twilio auth token. |
 | `media_sid` | string | Optional |  Your Twilio service SID, if you plan on sending local media. |
+| `environment_sid` | string | Optional |  Your Twilio environment SID, if you want to reuse an existing environment for media uploads. If not provided, a new environment will be created and deleted for each media upload. |
 | `default_from` | string | Optional |  Default Twilio phone number to send from, optional as it can be passed on each send request. |
 | `preset_messages` | object | Optional|  A set of key (preset name) and value (preset message body) pairs that can be used to send pre-configured text. Template strings can be embedded within double angle brackets, for example: <<to_replace>> |
 | `enforce_preset` | boolean | Optional, default false |  If set to true, preset_messages must be configured and a preset message must be selected when sending. |
@@ -70,6 +71,7 @@ The following attributes are available for `rdk:generic:mcvella:messaging:twilio
   "account_sid": "abc123adskjsd32lf23op",
   "auth_token": "821ssdaodsd2aspods9k2",
   "media_sid": "ms923odofdsopkfdsokd",
+  "environment_sid": "ev123odofdsopkfdsokd",
   "default_from": "18775550123",
   "preset_messages": {
     "alert": "This is an alert message about <<about>>"
