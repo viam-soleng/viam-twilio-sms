@@ -31,7 +31,7 @@ from twilio.rest import Client
 
 class twilioSMS(Generic, Reconfigurable):
 
-    MODEL: ClassVar[Model] = Model(ModelFamily("mcvella", "messaging"), "twilio-sms")
+    MODEL: ClassVar[Model] = Model(ModelFamily("viam-soleng", "messaging"), "twilio-sms")
     name: str
     twilio_client: Client
     twilio_account_sid: str
