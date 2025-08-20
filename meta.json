@@ -1,7 +1,7 @@
 {
   "module_id": "mcvella:twilio-sms",
   "visibility": "public",
-  "url": "https://github.com/mcvella/viam-twilio-sms",
+  "url": "https://github.com/viam-soleng/viam-twilio-sms",
   "description": "Viam modular service to allow you to integrate your machines with SMS/MMS functionality via Twilio",
   "models": [
     {
